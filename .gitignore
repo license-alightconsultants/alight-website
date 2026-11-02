@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+data/*.db
+data/*.db-journal
+backups/
+*.log
+data/uploads/
+
+# Database exports and archives contain admin password hashes - never commit or deploy them
+deploy/vercel/*.sql
+prisma/sqlite-archive/
+.vercel
+.neon

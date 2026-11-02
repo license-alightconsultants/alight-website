@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Animatable angle for the rotating gradient borders (.border-glow). */
+@property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+@layer base {
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body { @apply bg-white font-sans text-ink; text-rendering: optimizeLegibility; }
+  h1, h2, h3, h4 { @apply font-display text-navy-900; }
+  ::selection { background: #C7161C; color: #fff; }
+  :focus-visible { outline: 2px solid #2864A5; outline-offset: 3px; border-radius: 4px; }
+
+  /* Slim branded scrollbar */
+  html { scrollbar-color: #9FB0C8 transparent; scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #B7C3D6; border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background-color: #7F93B2; }
+}
+
+@layer components {
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-crimson-600;
+  }
+  .eyebrow::before { content: ''; @apply h-px w-6 bg-current; }
+  .eyebrow-light { @apply text-crimson-400; }
+
+  .glass {
+    @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl;
+  }
+  .text-gradient, .text-gradient > span > span {
+    background: linear-gradient(100deg, #ffffff 10%, #ABD2FF 55%, #EA5361 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  /* Accent words on light backgrounds: crimson that deepens toward brand navy-blue. */
+  .text-gradient-red {
+    background: linear-gradient(100deg, #C7161C 0%, #E0313C 45%, #8E1B4E 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  /* Fine film grain that takes the "flat digital" edge off dark gradients. */
+  .noise::after {
+    content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Rotating conic gradient border. Put on a rounded element; content sits above it. */
+  .border-glow { position: relative; isolation: isolate; }
+  .border-glow::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; z-index: -1; pointer-events: none;
+    background: conic-gradient(from var(--angle), rgba(171,210,255,0.08) 0deg, rgba(171,210,255,0.55) 60deg, rgba(234,83,97,0.6) 120deg, rgba(171,210,255,0.08) 180deg, rgba(171,210,255,0.08) 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: border-spin 6s linear infinite;
+  }
+
+  /* Light card hover: lift, deeper shadow and a crimson hairline that fades in. */
+  .card-hover { @apply transition-[transform,box-shadow,border-color] duration-500 ease-out; }
+  .card-hover:hover { @apply -translate-y-1 border-crimson-600/20 shadow-lift; }
+
+  .field {
+    @apply w-full rounded-xl border border-navy-900/10 bg-white px-4 py-3 text-[0.95rem] text-ink placeholder:text-slate/60
+      transition focus:border-brand-blue focus:outline-none focus:ring-4 focus:ring-brand-blue/10;
+  }
+  .field-error { @apply border-crimson-500 focus:border-crimson-500 focus:ring-crimson-500/10; }
+  .label { @apply mb-1.5 block text-sm font-medium text-navy-900; }
+}
+
+@keyframes border-spin { to { --angle: 360deg; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-marquee, .animate-spin-slow, .animate-pulse-line, .animate-dash, .animate-float, .animate-shimmer,
+  .animate-aurora, .animate-aurora-slow, .border-glow::before { animation: none !important; }
+  .card-hover:hover { transform: none; }
+}

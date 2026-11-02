@@ -1,0 +1,343 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Access control ─────────────────────────────────────────────
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  key         String           @unique // SUPER_ADMIN | ADMINISTRATOR | CONTENT_MANAGER | ENQUIRY_MANAGER
+  name        String
+  users       AdminUser[]
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Permission {
+  id    Int              @id @default(autoincrement())
+  key   String           @unique // e.g. enquiries.read, products.write
+  label String
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model AdminUser {
+  id           Int               @id @default(autoincrement())
+  email        String            @unique
+  name         String
+  passwordHash String
+  isActive     Boolean           @default(true)
+  roleId       Int
+  role         Role              @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  sessions     Session[]
+  assigned     Enquiry[]         @relation("EnquiryAssignee")
+  activities   EnquiryActivity[]
+  auditLogs    AuditLog[]
+  lastLoginAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+model Session {
+  id        String    @id // random token hash
+  userId    Int
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  key       String // email or ip
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
+model AuditLog {
+  id        Int        @id @default(autoincrement())
+  userId    Int?
+  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  meta      String? // JSON
+  createdAt DateTime   @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// ─── Enquiries ──────────────────────────────────────────────────
+
+model Enquiry {
+  id           Int               @id @default(autoincrement())
+  reference    String            @unique // ALC-YYMMDD-XXXX
+  type         String            @default("CONTACT") // CONTACT | CONSULTATION
+  status       String            @default("NEW") // NEW | CONTACTED | IN_DISCUSSION | PROPOSAL_SENT | CONVERTED | CLOSED
+  name         String
+  email        String
+  mobile       String?
+  company      String?
+  designation  String?
+  companySize  String?
+  industry     String?
+  service      String?
+  product      String?
+  subject      String?
+  message      String
+  requirements String?
+  budget       String?
+  timeline     String?
+  consent      Boolean           @default(false)
+  sourcePage   String?
+  ip           String?
+  userAgent    String?
+  remarks      String?
+  assigneeId   Int?
+  assignee     AdminUser?        @relation("EnquiryAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  emailStatus  String            @default("PENDING") // PENDING | SENT | FAILED | SKIPPED
+  activities   EnquiryActivity[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status])
+  @@index([service])
+  @@index([createdAt])
+}
+
+model EnquiryActivity {
+  id        Int        @id @default(autoincrement())
+  enquiryId Int
+  enquiry   Enquiry    @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  userId    Int?
+  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // CREATED | STATUS_CHANGED | REMARK | ASSIGNED | EMAIL_SENT | EMAIL_FAILED
+  detail    String?
+  createdAt DateTime   @default(now())
+
+  @@index([enquiryId])
+}
+
+// ─── Catalogue ──────────────────────────────────────────────────
+
+model Product {
+  id             Int              @id @default(autoincrement())
+  slug           String           @unique
+  name           String
+  shortName      String?
+  category       String
+  summary        String
+  description    String?
+  visual         String?
+  isFeatured     Boolean          @default(false)
+  isPublished    Boolean          @default(true)
+  sortOrder      Int              @default(0)
+  seoTitle       String?
+  seoDescription String?
+  features       ProductFeature[]
+  images         ProductImage[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([isPublished, sortOrder])
+  @@index([category])
+}
+
+model ProductFeature {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title     String
+  sortOrder Int     @default(0)
+
+  @@index([productId])
+}
+
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String
+  kind      String  @default("SCREENSHOT") // COVER | SCREENSHOT
+  sortOrder Int     @default(0)
+
+  @@index([productId])
+}
+
+model Service {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  title          String
+  icon           String?
+  summary        String
+  description    String?
+  features       String // JSON array
+  benefits       String // JSON array
+  imageUrl       String?
+  isPublished    Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Industry {
+  id          Int         @id @default(autoincrement())
+  slug        String      @unique
+  name        String
+  headline    String?
+  story       String?
+  icon        String?
+  sortOrder   Int         @default(0)
+  isPublished Boolean     @default(true)
+  caseStudies CaseStudy[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model CaseStudy {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  title       String
+  industryId  Int?
+  industry    Industry? @relation(fields: [industryId], references: [id], onDelete: SetNull)
+  summary     String
+  challenge   String?
+  solution    String?
+  results     String?
+  technology  String? // comma separated
+  coverUrl    String?
+  isPublished Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isPublished])
+}
+
+// ─── Content ────────────────────────────────────────────────────
+
+model BlogCategory {
+  id    Int    @id @default(autoincrement())
+  slug  String @unique
+  name  String
+  blogs Blog[]
+}
+
+model Blog {
+  id             Int           @id @default(autoincrement())
+  slug           String        @unique
+  title          String
+  excerpt        String?
+  content        String
+  coverUrl       String?
+  categoryId     Int?
+  category       BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  status         String        @default("DRAFT") // DRAFT | PUBLISHED | SCHEDULED
+  publishedAt    DateTime?
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+model Testimonial {
+  id           Int      @id @default(autoincrement())
+  name         String
+  designation  String?
+  organization String?
+  content      String
+  imageUrl     String?
+  isApproved   Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ClientLogo {
+  id        Int      @id @default(autoincrement())
+  name      String
+  logoUrl   String
+  website   String?
+  isVisible Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Statistic {
+  id        Int      @id @default(autoincrement())
+  label     String
+  value     Int
+  suffix    String?
+  prefix    String?
+  isVisible Boolean  @default(true)
+  sortOrder Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Careers ────────────────────────────────────────────────────
+
+model Job {
+  id             Int              @id @default(autoincrement())
+  slug           String           @unique
+  title          String
+  department     String
+  location       String
+  employmentType String
+  description    String
+  requirements   String
+  isActive       Boolean          @default(true)
+  applications   JobApplication[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model JobApplication {
+  id        Int      @id @default(autoincrement())
+  jobId     Int
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  mobile    String?
+  resumeUrl String?
+  coverNote String?
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+}
+
+// ─── Settings ───────────────────────────────────────────────────
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  isSecret  Boolean  @default(false) // secret values are never sent to the browser
+  updatedAt DateTime @updatedAt
+}

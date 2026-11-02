@@ -1,0 +1,14 @@
+# Not needed on Vercel, or private
+.env
+.env.*
+!.env.example
+data/
+backups/
+deploy/
+docs/
+prisma/sqlite-archive/
+*.db
+*.db-journal
+*.log
+.next/
+node_modules/
